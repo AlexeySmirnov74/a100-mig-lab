@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Renamed the project and GitHub repository to **A100 MIG Lab** (`a100-mig-lab`); updated English/Russian documentation, badges, the architecture diagram and release links.
+
 ## v0.2.0 — 2026-11-11
 
 ### Fixed

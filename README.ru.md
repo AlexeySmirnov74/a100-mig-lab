@@ -1,13 +1,15 @@
-# NVIDIA A100 MIG · Лаборатория LLMOps с несколькими моделями
+# A100 MIG Lab
 
-[![Релиз](https://img.shields.io/github/v/release/AlexeySmirnov74/mig-litellm-nvidia-a100-lab?style=flat-square&logo=github&color=f97316)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/releases)
-[![CI](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions/workflows/ci.yml)
+[![Релиз](https://img.shields.io/github/v/release/AlexeySmirnov74/a100-mig-lab?style=flat-square&logo=github&color=f97316)](https://github.com/AlexeySmirnov74/a100-mig-lab/releases)
+[![CI](https://github.com/AlexeySmirnov74/a100-mig-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexeySmirnov74/a100-mig-lab/actions/workflows/ci.yml)
 ![Платформа](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04-0078D4?style=flat-square&logo=ubuntu)
 ![GPU](https://img.shields.io/badge/NVIDIA-A100%2040GB%20%7C%20MIG-76B900?style=flat-square&logo=nvidia)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-8b5cf6?style=flat-square&logo=python&logoColor=white)
-[![Звёзды](https://img.shields.io/github/stars/AlexeySmirnov74/mig-litellm-nvidia-a100-lab?style=flat-square&logo=github&color=eab308)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/stargazers)
+[![Звёзды](https://img.shields.io/github/stars/AlexeySmirnov74/a100-mig-lab?style=flat-square&logo=github&color=eab308)](https://github.com/AlexeySmirnov74/a100-mig-lab/stargazers)
 
 [English](README.md) · **Русский**
+
+**Несколько LLM на одной NVIDIA A100**
 
 Три независимые чат-модели и контролируемый эксперимент с нехваткой CUDA-памяти на **одной NVIDIA A100 40GB**. Проект объединяет аппаратное разделение GPU, OpenAI-совместимый шлюз, потоковый сервис восстановления контекста и мониторинг GPU и приложений.
 
@@ -56,8 +58,8 @@ MIG разделяет вычислительные ресурсы и GPU-пам
 Требуется Docker Compose **2.23.1+**: мониторинг получает ключ через environment-backed secret. Скрипт подготовки устанавливает Docker и NVIDIA Container Toolkit, установку драйвера оставляет провайдеру.
 
 ```bash
-git clone https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab.git
-cd mig-litellm-nvidia-a100-lab
+git clone https://github.com/AlexeySmirnov74/a100-mig-lab.git
+cd a100-mig-lab
 cp .env.example .env
 # Замените OPENAI_API_KEY, OPENWEBUI_SECRET_KEY, GRAFANA_ADMIN_PASSWORD.
 # HF_TOKEN для стандартных публичных моделей необязателен.
@@ -132,7 +134,7 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 bash tests/test_scripts.sh
 ```
 
-[GitHub Actions](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions) проверяет Python с имитацией upstream, shell-автоматизацию с имитацией GPU, Compose, Prometheus и структуру dashboards. Зелёный бейдж относится к этим проверкам. **Он не подтверждает инференс на A100, CUDA OOM isolation или производительность v0.2.0.** Сейчас A100 для повторного прогона нет.
+[GitHub Actions](https://github.com/AlexeySmirnov74/a100-mig-lab/actions) проверяет Python с имитацией upstream, shell-автоматизацию с имитацией GPU, Compose, Prometheus и структуру dashboards. Зелёный бейдж относится к этим проверкам. **Он не подтверждает инференс на A100, CUDA OOM isolation или производительность v0.2.0.** Сейчас A100 для повторного прогона нет.
 
 ## Примечания
 

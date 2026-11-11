@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
-<title id="title">One A100, three model tiers, one isolated failure experiment</title>
+<title id="title">A100 MIG Lab: three model tiers and one isolated failure experiment</title>
 <desc id="desc">Open WebUI calls context guard, then LiteLLM routes to three TGI servers on 3g, 2g and 1g MIG instances. A second 1g instance is reserved for stress tests. DCGM, application and TGI metrics feed Prometheus and Grafana.</desc>
 <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#94a3b8"/></marker></defs>
 <rect width="1200" height="690" rx="24" fill="#0b1120"/>
 <g font-family="Segoe UI,Arial,sans-serif" fill="#e2e8f0">
-<text x="48" y="54" font-size="14" fill="#38bdf8" letter-spacing="3">BARE-METAL LLMOPS LAB</text>
+<text x="48" y="54" font-size="14" fill="#38bdf8" letter-spacing="3">A100 MIG LAB</text>
 <text x="48" y="101" font-size="34" font-weight="700">One A100. Four isolated slices.</text>
 <text x="48" y="133" font-size="17" fill="#94a3b8">Three chat tiers + a dedicated memory-pressure experiment | A100 40 GB</text>
 <g stroke="#334155" stroke-width="2">

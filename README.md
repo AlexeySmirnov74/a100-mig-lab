@@ -1,13 +1,15 @@
-# NVIDIA A100 MIG · Multi-model LLMOps Lab
+# A100 MIG Lab
 
-[![Release](https://img.shields.io/github/v/release/AlexeySmirnov74/mig-litellm-nvidia-a100-lab?style=flat-square&logo=github&color=f97316)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/releases)
-[![CI](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/AlexeySmirnov74/a100-mig-lab?style=flat-square&logo=github&color=f97316)](https://github.com/AlexeySmirnov74/a100-mig-lab/releases)
+[![CI](https://github.com/AlexeySmirnov74/a100-mig-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexeySmirnov74/a100-mig-lab/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04-0078D4?style=flat-square&logo=ubuntu)
 ![GPU](https://img.shields.io/badge/NVIDIA-A100%2040GB%20%7C%20MIG-76B900?style=flat-square&logo=nvidia)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-8b5cf6?style=flat-square&logo=python&logoColor=white)
-[![Stars](https://img.shields.io/github/stars/AlexeySmirnov74/mig-litellm-nvidia-a100-lab?style=flat-square&logo=github&color=eab308)](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/stargazers)
+[![Stars](https://img.shields.io/github/stars/AlexeySmirnov74/a100-mig-lab?style=flat-square&logo=github&color=eab308)](https://github.com/AlexeySmirnov74/a100-mig-lab/stargazers)
 
 **English** · [Русский](README.ru.md)
+
+**Multi-Model LLM Serving on NVIDIA A100**
 
 Run three independent chat models and a controlled CUDA memory-pressure experiment on **one NVIDIA A100 40GB**. The lab combines hardware partitioning, an OpenAI-compatible gateway, a streaming context-recovery service, and GPU/application observability.
 
@@ -56,8 +58,8 @@ Use a **dedicated Linux host with an A100 40GB**, working NVIDIA driver and `nvi
 Docker Compose **2.23.1+** is required for an environment-backed monitoring secret. The host bootstrap installs Docker and NVIDIA Container Toolkit; it leaves GPU driver installation to your provider.
 
 ```bash
-git clone https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab.git
-cd mig-litellm-nvidia-a100-lab
+git clone https://github.com/AlexeySmirnov74/a100-mig-lab.git
+cd a100-mig-lab
 cp .env.example .env
 # Edit .env: replace OPENAI_API_KEY, OPENWEBUI_SECRET_KEY, GRAFANA_ADMIN_PASSWORD.
 # HF_TOKEN is optional for the default public models.
@@ -132,7 +134,7 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 bash tests/test_scripts.sh
 ```
 
-[GitHub Actions](https://github.com/AlexeySmirnov74/mig-litellm-nvidia-a100-lab/actions) checks Python behavior with mocked upstreams, shell automation with mocked hardware, Compose configuration, Prometheus configuration and dashboard structure. A green CI badge covers those checks. **It does not certify A100 inference, CUDA OOM isolation, or performance of v0.2.0.** No A100 is currently available to rerun those checks.
+[GitHub Actions](https://github.com/AlexeySmirnov74/a100-mig-lab/actions) checks Python behavior with mocked upstreams, shell automation with mocked hardware, Compose configuration, Prometheus configuration and dashboard structure. A green CI badge covers those checks. **It does not certify A100 inference, CUDA OOM isolation, or performance of v0.2.0.** No A100 is currently available to rerun those checks.
 
 ## Project notes
 

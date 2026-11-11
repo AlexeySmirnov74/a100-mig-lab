@@ -68,7 +68,7 @@ jobs:
             }
             await github.rest.repos.createRelease({
               ...context.repo, tag_name: tag, target_commitish: context.sha,
-              name: `${tag} — Reproducible A100 MIG portfolio lab`, body,
+              name: `${tag} — A100 MIG Lab`, body,
               draft: false, prerelease: false, make_latest: 'true'
             });
       - name: Apply repository topics when the installation permits it
