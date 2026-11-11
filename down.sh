@@ -1,1 +1,3 @@
-docker compose --env-file .env -f compose/docker-compose.yml down --remove-orphans
+#!/usr/bin/env bash
+set -euo pipefail
+exec bash "$(dirname "${BASH_SOURCE[0]}")/scripts/99_cleanup.sh" "$@"

@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Python regression tests (mocked upstream, no GPU)
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Shell syntax and mocked host regression tests
+        run: |
+          find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -n1 bash -n
+          bash tests/test_scripts.sh
+      - name: Validate Compose without GPU
+        env:
+          OPENAI_API_KEY: ci-local-key
+          MIG_GENERAL_UUID: MIG-ci-general
+          MIG_FAST_UUID: MIG-ci-fast
+          MIG_TINY_UUID: MIG-ci-tiny
+        run: docker compose --env-file .env.example -f compose/docker-compose.yml config --quiet
+      - name: Validate Prometheus configuration
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            prom/prometheus:v3.2.1 check config --syntax-only /etc/prometheus/prometheus.yml
+      - name: Validate dashboards and documentation links
+        run: python tests/validate_repository.py
+
+  release:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Publish the documented release once after validation
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const tag = fs.readFileSync('VERSION', 'utf8').trim();
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error('Invalid VERSION');
+            const body = fs.readFileSync(`docs/releases/${tag}.md`, 'utf8');
+            try {
+              await github.rest.repos.getReleaseByTag({...context.repo, tag});
+              core.info(`Release ${tag} already exists; leaving it unchanged.`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            await github.rest.repos.createRelease({
+              ...context.repo, tag_name: tag, target_commitish: context.sha,
+              name: `${tag} — Reproducible A100 MIG portfolio lab`, body,
+              draft: false, prerelease: false, make_latest: 'true'
+            });
+      - name: Apply repository topics when the installation permits it
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const suggested = JSON.parse(fs.readFileSync('.github/topics.json', 'utf8'));
+            try {
+              const current = await github.rest.repos.getAllTopics(context.repo);
+              const names = [...new Set([...current.data.names, ...suggested])].slice(0, 20);
+              await github.rest.repos.replaceAllTopics({...context.repo, names});
+            } catch (error) {
+              core.warning('Repository topics require administration permission; suggested topics are saved in .github/topics.json. ' + error.message);
+            }

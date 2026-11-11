@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
+<title id="title">One A100, three model tiers, one isolated failure experiment</title>
+<desc id="desc">Open WebUI calls context guard, then LiteLLM routes to three TGI servers on 3g, 2g and 1g MIG instances. A second 1g instance is reserved for stress tests. DCGM, application and TGI metrics feed Prometheus and Grafana.</desc>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#94a3b8"/></marker></defs>
+<rect width="1200" height="690" rx="24" fill="#0b1120"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#e2e8f0">
+<text x="48" y="54" font-size="14" fill="#38bdf8" letter-spacing="3">BARE-METAL LLMOPS LAB</text>
+<text x="48" y="101" font-size="34" font-weight="700">One A100. Four isolated slices.</text>
+<text x="48" y="133" font-size="17" fill="#94a3b8">Three chat tiers + a dedicated memory-pressure experiment | A100 40 GB</text>
+<g stroke="#334155" stroke-width="2">
+<rect x="48" y="184" width="216" height="90" rx="14" fill="#172033"/>
+<rect x="312" y="184" width="255" height="90" rx="14" fill="#172033"/>
+<rect x="615" y="184" width="236" height="90" rx="14" fill="#172033"/>
+<path d="M264 229H303M567 229H606M851 229H1080V316" fill="none" stroke="#94a3b8" marker-end="url(#a)"/>
+<rect x="48" y="317" width="1104" height="197" rx="18" fill="#101c30"/>
+</g>
+<text x="72" y="223" font-size="22" font-weight="600">Open WebUI</text><text x="72" y="250" font-size="15" fill="#94a3b8">OpenAI-compatible clients</text>
+<text x="336" y="223" font-size="22" font-weight="600">Context guard</text><text x="336" y="250" font-size="15" fill="#94a3b8">SSE · pooled HTTP · one retry</text>
+<text x="639" y="223" font-size="22" font-weight="600">LiteLLM proxy</text><text x="639" y="250" font-size="15" fill="#94a3b8">Stable model aliases</text>
+<text x="72" y="348" font-size="14" fill="#94a3b8">NVIDIA MULTI-INSTANCE GPU · 3 + 2 + 1 + 1 COMPUTE SLICES</text>
+<rect x="72" y="370" width="390" height="118" rx="12" fill="#153f49" stroke="#2dd4bf"/>
+<rect x="477" y="370" width="260" height="118" rx="12" fill="#1e3256" stroke="#60a5fa"/>
+<rect x="752" y="370" width="180" height="118" rx="12" fill="#382657" stroke="#c084fc"/>
+<rect x="947" y="370" width="181" height="118" rx="12" fill="#4b2b27" stroke="#fb923c"/>
+<text x="92" y="402" font-size="22" fill="#5eead4" font-weight="700">3g.20gb</text><text x="92" y="435" font-size="20">general-chat</text><text x="92" y="463" font-size="15" fill="#b2cccf">TGI · Qwen2.5 3B</text>
+<text x="497" y="402" font-size="22" fill="#93c5fd" font-weight="700">2g.10gb</text><text x="497" y="435" font-size="20">fast-chat</text><text x="497" y="463" font-size="15" fill="#bfcee6">TGI · Qwen2.5 1.5B</text>
+<text x="772" y="402" font-size="22" fill="#d8b4fe" font-weight="700">1g.5gb</text><text x="772" y="435" font-size="20">tiny-chat</text><text x="772" y="463" font-size="15" fill="#d6c6e9">TGI · Qwen2.5 0.5B</text>
+<text x="967" y="402" font-size="22" fill="#fdba74" font-weight="700">1g.5gb</text><text x="967" y="435" font-size="20">Stress worker</text><text x="967" y="463" font-size="15" fill="#e4c5b3">Controlled CUDA OOM</text>
+<path d="M250 514V557H460M440 274V557M732 274V557M460 557H650M870 557H915" fill="none" stroke="#94a3b8" stroke-dasharray="5 5" marker-end="url(#a)"/>
+<rect x="48" y="553" width="355" height="66" rx="12" fill="#172033" stroke="#334155"/>
+<text x="72" y="581" font-size="18">DCGM + TGI + guard metrics</text><text x="72" y="604" font-size="13" fill="#94a3b8">GPU memory, compute activity, requests, latency</text>
+<rect x="650" y="535" width="220" height="65" rx="12" fill="#172033" stroke="#334155"/><text x="677" y="574" font-size="22">Prometheus</text>
+<rect x="924" y="535" width="204" height="65" rx="12" fill="#172033" stroke="#334155"/><text x="973" y="574" font-size="22">Grafana</text>
+<text x="48" y="658" font-size="14" fill="#94a3b8">Conceptual architecture · profile labels describe hardware partitions, not measured performance.</text>
+</g></svg>

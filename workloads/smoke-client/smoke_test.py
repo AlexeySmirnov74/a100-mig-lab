@@ -1,36 +1,46 @@
-import json
+"""GPU-backed route smoke test. Any failed route makes the process fail."""
 import os
 import sys
+
 import requests
 
-BASE_URL = os.getenv("BASE_URL", "http://litellm:4000/v1")
+BASE_URL = os.getenv("BASE_URL", "http://context-guard:4010/v1").rstrip("/")
+API_KEY = os.getenv("OPENAI_API_KEY", "dummy-local-key")
 MODELS = ["general-chat", "fast-chat", "tiny-chat"]
-PROMPT = "Say hello in one short sentence and mention your model briefly."
+PROMPT = "Say hello in one short sentence."
 
 
-def check(model: str) -> None:
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": PROMPT}],
-        "max_tokens": 64,
-        "temperature": 0.1,
-    }
-    r = requests.post(
+def check(client: requests.Session, model: str) -> None:
+    response = client.post(
         f"{BASE_URL}/chat/completions",
-        headers={"Authorization": "Bearer dummy-local-key", "Content-Type": "application/json"},
-        data=json.dumps(payload),
-        timeout=120,
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": PROMPT}],
+            "max_tokens": 64,
+            "temperature": 0.1,
+            "stream": False,
+        },
+        timeout=(10, 120),
     )
-    r.raise_for_status()
-    data = r.json()
-    text = data["choices"][0]["message"]["content"]
-    print(f"[{model}] {text}")
+    response.raise_for_status()
+    text = response.json()["choices"][0]["message"]["content"]
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("empty completion")
+    print(f"[{model}] {text}", flush=True)
 
 
-def main() -> None:
-    for model in MODELS:
-        check(model)
+def main() -> int:
+    failures = 0
+    with requests.Session() as client:
+        client.headers.update({"Authorization": f"Bearer {API_KEY}"})
+        for model in MODELS:
+            try:
+                check(client, model)
+            except (requests.RequestException, ValueError, KeyError, IndexError, TypeError) as exc:
+                failures += 1
+                print(f"[{model}] FAILED: {exc}", file=sys.stderr, flush=True)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

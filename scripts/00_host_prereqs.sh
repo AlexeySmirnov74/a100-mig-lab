@@ -8,6 +8,12 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 
+source /etc/os-release
+if [[ "${ID:-}" != "ubuntu" ]]; then
+  echo "ERROR: this installer supports Ubuntu. Install Docker and NVIDIA Container Toolkit manually on other distributions." >&2
+  exit 1
+fi
+
 need_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
@@ -54,7 +60,7 @@ else
 fi
 
 echo "[4/6] Installing NVIDIA Container Toolkit..."
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --batch --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
   sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
   > /etc/apt/sources.list.d/nvidia-container-toolkit.list

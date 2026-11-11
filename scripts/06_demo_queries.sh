@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$ROOT_DIR/compose"
-
-docker run --rm --network compose_default mig-lab-smoke-client:local
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+require_env
+docker run --rm --network "${PROJECT_NAME}_default" \
+  -e BASE_URL=http://context-guard:4010/v1 \
+  -e OPENAI_API_KEY="$(env_value OPENAI_API_KEY dummy-local-key)" \
+  mig-lab-smoke-client:local

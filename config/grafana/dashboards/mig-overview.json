@@ -7,7 +7,7 @@
   "panels": [
     {
       "type": "timeseries",
-      "title": "GPU / MIG Compute Activity (%)",
+      "title": "MIG Compute Engine Activity (%)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -16,15 +16,26 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_PROF_GR_ENGINE_ACTIVE",
-          "legendFormat": "{{Hostname}} {{UUID}} {{GPU_I_PROFILE}}"
+          "expr": "DCGM_FI_PROF_GR_ENGINE_ACTIVE{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "noValue": "0"
+          "noValue": "N/A",
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         }
-      }
+      },
+      "id": 1,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "DCGM profiling activity ratio (0-1), displayed as a percentage. A100 MIG utilization is not available through the legacy NVML GPU utilization field. Availability depends on the driver, permissions and DCGM collector."
     },
     {
       "type": "timeseries",
@@ -37,19 +48,27 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_FB_USED",
-          "legendFormat": "{{Hostname}} {{UUID}} {{GPU_I_PROFILE}}"
+          "expr": "DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "noValue": "0"
+          "noValue": "N/A",
+          "unit": "mbytes"
         }
+      },
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
       }
     },
     {
       "type": "timeseries",
-      "title": "GPU Utilization (%)",
+      "title": "MIG Tensor Pipe Activity (%)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -58,15 +77,26 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_GPU_UTIL",
-          "legendFormat": "{{Hostname}} {{UUID}} {{GPU_I_PROFILE}}"
+          "expr": "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "noValue": "0"
+          "noValue": "N/A",
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         }
-      }
+      },
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "DCGM profiling tensor-pipe activity ratio. This is hardware activity, not a percentage of achieved peak FLOPS. Missing or unsupported telemetry remains N/A."
     },
     {
       "type": "timeseries",
@@ -79,14 +109,22 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_FB_FREE",
-          "legendFormat": "{{Hostname}} {{UUID}} {{GPU_I_PROFILE}}"
+          "expr": "DCGM_FI_DEV_FB_FREE{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "noValue": "0"
+          "noValue": "N/A",
+          "unit": "mbytes"
         }
+      },
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
       }
     }
   ],
@@ -105,5 +143,7 @@
     "to": "now"
   },
   "title": "MIG Overview",
-  "version": 1
+  "version": 2,
+  "refresh": "5s",
+  "uid": "mig-overview"
 }

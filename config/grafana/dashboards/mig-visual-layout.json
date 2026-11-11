@@ -23,7 +23,7 @@
   "panels": [
     {
       "type": "bargauge",
-      "title": "Current Occupancy % by MIG Slice",
+      "title": "Reported FB Occupancy by MIG Slice (%)",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -36,19 +36,10 @@
       },
       "targets": [
         {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"1g.5gb\"} / 4864) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "A"
-        },
-        {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"2g.10gb\"} / 9984) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "B"
-        },
-        {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"3g.20gb\"} / 20096) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "C"
+          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} / (DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} + DCGM_FI_DEV_FB_FREE{GPU_I_ID!=\"\"})) * 100",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
@@ -73,7 +64,7 @@
               }
             ]
           },
-          "noValue": "0"
+          "noValue": "N/A"
         },
         "overrides": []
       },
@@ -88,7 +79,9 @@
           "fields": ""
         },
         "showUnfilled": true
-      }
+      },
+      "id": 1,
+      "description": "DCGM used / (used + free) framebuffer memory. Uses observed capacity instead of hardcoded nominal profile sizes. N/A means a required metric is unavailable."
     },
     {
       "type": "bargauge",
@@ -105,32 +98,19 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_FB_USED",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "A"
+          "expr": "DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "decmbytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 4000
-              },
-              {
-                "color": "red",
-                "value": 4700
-              }
-            ]
-          },
-          "noValue": "0"
+          "unit": "mbytes",
+          "noValue": "N/A",
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
@@ -145,11 +125,13 @@
           "fields": ""
         },
         "showUnfilled": true
-      }
+      },
+      "id": 2,
+      "description": "Reported framebuffer use in MiB. Compare pressure using the occupancy panel; a shared absolute threshold would misclassify larger MIG profiles."
     },
     {
       "type": "bargauge",
-      "title": "Current GPU Util by MIG Slice",
+      "title": "MIG Compute Engine Activity (%)",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -162,34 +144,35 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_GPU_UTIL",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "A"
+          "expr": "DCGM_FI_PROF_GR_ENGINE_ACTIVE{GPU_I_ID!=\"\"}",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "percentunit",
           "min": 0,
-          "max": 100,
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": 0.0
               },
               {
                 "color": "orange",
-                "value": 60
+                "value": 0.6
               },
               {
                 "color": "red",
-                "value": 90
+                "value": 0.9
               }
             ]
           },
-          "noValue": "0"
+          "noValue": "N/A"
         },
         "overrides": []
       },
@@ -204,11 +187,13 @@
           "fields": ""
         },
         "showUnfilled": true
-      }
+      },
+      "id": 3,
+      "description": "DCGM profiling activity ratio (0-1), displayed as a percentage. A100 MIG utilization is not available through the legacy NVML GPU utilization field. Availability depends on the driver, permissions and DCGM collector."
     },
     {
       "type": "state-timeline",
-      "title": "Slice Occupancy State Over Time",
+      "title": "Reported FB Occupancy State by MIG Slice",
       "gridPos": {
         "h": 10,
         "w": 24,
@@ -221,19 +206,10 @@
       },
       "targets": [
         {
-          "expr": "((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"1g.5gb\"} / 4864) > bool 0.95) * 2 + ((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"1g.5gb\"} / 4864) > bool 0.85)",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "A"
-        },
-        {
-          "expr": "((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"2g.10gb\"} / 9984) > bool 0.95) * 2 + ((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"2g.10gb\"} / 9984) > bool 0.85)",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "B"
-        },
-        {
-          "expr": "((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"3g.20gb\"} / 20096) > bool 0.95) * 2 + ((DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"3g.20gb\"} / 20096) > bool 0.85)",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "C"
+          "expr": "((DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} / (DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} + DCGM_FI_DEV_FB_FREE{GPU_I_ID!=\"\"})) >= bool 0.85) + ((DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} / (DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} + DCGM_FI_DEV_FB_FREE{GPU_I_ID!=\"\"})) >= bool 0.95)",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
       ],
       "options": {
@@ -248,13 +224,16 @@
               "type": "value",
               "options": {
                 "0": {
-                  "text": "Free/Normal"
+                  "text": "Below 85%",
+                  "color": "green"
                 },
                 "1": {
-                  "text": "Busy"
+                  "text": "At least 85%",
+                  "color": "orange"
                 },
                 "2": {
-                  "text": "Near OOM"
+                  "text": "At least 95%",
+                  "color": "red"
                 }
               }
             }
@@ -276,14 +255,16 @@
               }
             ]
           },
-          "noValue": "0"
+          "noValue": "N/A"
         },
         "overrides": []
-      }
+      },
+      "id": 4,
+      "description": "Used / (used + free) framebuffer memory reported by DCGM. States: 0 below 85%, 1 at least 85%, 2 at least 95%. High occupancy is a warning threshold, not proof that an allocation will fail. Missing samples remain N/A."
     },
     {
       "type": "timeseries",
-      "title": "Memory Pressure % by Slice",
+      "title": "Reported FB Occupancy by MIG Slice (%)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -297,27 +278,20 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "noValue": "0"
+          "noValue": "N/A"
         },
         "overrides": []
       },
       "targets": [
         {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"1g.5gb\"} / 4864) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "A"
-        },
-        {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"2g.10gb\"} / 9984) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "B"
-        },
-        {
-          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_PROFILE=\"3g.20gb\"} / 20096) * 100",
-          "legendFormat": "{{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
-          "refId": "C"
+          "expr": "(DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} / (DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"} + DCGM_FI_DEV_FB_FREE{GPU_I_ID!=\"\"})) * 100",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}",
+          "refId": "A",
+          "interval": "15s"
         }
-      ]
+      ],
+      "id": 5,
+      "description": "DCGM used / (used + free) framebuffer memory. Uses observed capacity instead of hardcoded nominal profile sizes. N/A means a required metric is unavailable."
     },
     {
       "type": "table",
@@ -334,16 +308,20 @@
       },
       "targets": [
         {
-          "expr": "DCGM_FI_DEV_FB_USED",
+          "expr": "DCGM_FI_DEV_FB_USED{GPU_I_ID!=\"\"}",
           "format": "table",
           "instant": true,
-          "refId": "A"
+          "refId": "A",
+          "interval": "15s",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}"
         },
         {
-          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "expr": "DCGM_FI_PROF_GR_ENGINE_ACTIVE{GPU_I_ID!=\"\"}",
           "format": "table",
           "instant": true,
-          "refId": "B"
+          "refId": "B",
+          "interval": "15s",
+          "legendFormat": "GPU {{gpu}} / {{GPU_I_PROFILE}} / GI {{GPU_I_ID}}"
         }
       ],
       "options": {
@@ -352,12 +330,14 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "0"
+          "noValue": "N/A"
         }
-      }
+      },
+      "id": 6,
+      "description": "Instant values from DCGM. Framebuffer values are in MiB; compute activity is a 0-1 ratio. Only MIG instances are selected."
     }
   ],
-  "refresh": "500ms",
+  "refresh": "5s",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -375,6 +355,6 @@
   "timezone": "browser",
   "title": "MIG Visual Layout",
   "uid": "mig-visual-layout",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

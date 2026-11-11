@@ -1,210 +1,164 @@
+"""Closed-loop concurrency experiment; latency is measured only for successful calls."""
 import asyncio
+import math
 import os
 import random
-import statistics
 import time
-from collections import Counter
+from collections import Counter, deque
 
 import httpx
 
-
-def env_int(name: str, default: int) -> int:
-    v = os.getenv(name)
-    return int(v) if v not in (None, "") else default
-
-
-def env_float(name: str, default: float) -> float:
-    v = os.getenv(name)
-    return float(v) if v not in (None, "") else default
-
-
-def env_str(name: str, default: str) -> str:
-    v = os.getenv(name)
-    return v if v not in (None, "") else default
-
-
-API_BASE = env_str("LOAD_API_BASE", "http://context-guard:4010/v1")
-API_KEY = env_str("LOAD_API_KEY", "dummy-local-key")
-USERS = env_int("LOAD_USERS", 10)
-DURATION_SEC = env_int("LOAD_DURATION_SEC", 120)
-THINK_TIME_SEC = env_float("LOAD_THINK_TIME_SEC", 0.5)
-TIMEOUT_SEC = env_float("LOAD_TIMEOUT_SEC", 120.0)
-MODEL_MODE = env_str("LOAD_MODEL_MODE", "all").lower()
-MAX_TOKENS = env_int("LOAD_MAX_TOKENS", 64)
+API_BASE = os.getenv("LOAD_API_BASE", "http://context-guard:4010/v1").rstrip("/")
+API_KEY = os.getenv("LOAD_API_KEY", "dummy-local-key")
+USERS = int(os.getenv("LOAD_USERS", "10"))
+DURATION_SEC = float(os.getenv("LOAD_DURATION_SEC", "120"))
+THINK_TIME_SEC = float(os.getenv("LOAD_THINK_TIME_SEC", "0.5"))
+TIMEOUT_SEC = float(os.getenv("LOAD_TIMEOUT_SEC", "120"))
+MODEL_MODE = os.getenv("LOAD_MODEL_MODE", "all").lower()
+MAX_TOKENS = int(os.getenv("LOAD_MAX_TOKENS", "64"))
+LATENCY_WINDOW = 100_000
 
 PROMPTS = [
-    "Объясни коротко что такое MIG в NVIDIA.",
-    "Напиши 3 пункта почему изоляция GPU через MIG полезна.",
-    "Скажи в одном абзаце чем fast-chat отличается от general-chat.",
-    "Дай короткий ответ что такое p95 latency.",
-    "Что увидит LLMOps инженер на дашборде при росте нагрузки?",
-    "Опиши в 2-3 предложениях что происходит при OOM на одном MIG slice.",
-    "Скажи как проверить что другие MIG slices не упали после OOM.",
-    "В чем ценность Prometheus и Grafana для LLM inference?",
-    "Чем отличается throughput от latency?",
-    "Почему context reset policy полезен для маленьких моделей?"
+    "Explain NVIDIA MIG in two sentences.",
+    "List three benefits of GPU memory isolation.",
+    "Explain the difference between throughput and latency.",
+    "What does p95 latency measure?",
+    "What should an LLMOps dashboard show during a load increase?",
+    "Explain what happens when one MIG slice runs out of memory.",
+    "How would you check that other MIG slices remain healthy after an OOM?",
+    "Why are Prometheus and Grafana useful for LLM inference?",
 ]
 
 
+def validate_config() -> None:
+    for name, value in (("LOAD_USERS", USERS), ("LOAD_DURATION_SEC", DURATION_SEC),
+                        ("LOAD_TIMEOUT_SEC", TIMEOUT_SEC), ("LOAD_MAX_TOKENS", MAX_TOKENS)):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be positive and finite")
+    if not math.isfinite(THINK_TIME_SEC) or THINK_TIME_SEC < 0:
+        raise ValueError("LOAD_THINK_TIME_SEC must be nonnegative and finite")
+    if MODEL_MODE not in {"all", "general", "fast", "tiny"}:
+        raise ValueError("LOAD_MODEL_MODE must be all, general, fast, or tiny")
+
+
 def choose_model(counter: int) -> str:
-    if MODEL_MODE == "general":
-        return "general-chat"
-    if MODEL_MODE == "fast":
-        return "fast-chat"
-    if MODEL_MODE == "tiny":
-        return "tiny-chat"
-    models = ["general-chat", "fast-chat", "tiny-chat"]
-    return models[counter % len(models)]
+    if MODEL_MODE != "all":
+        return f"{MODEL_MODE}-chat"
+    return ("general-chat", "fast-chat", "tiny-chat")[counter % 3]
 
 
-def percentile(values: list[float], p: float) -> float:
-    if not values:
-        return 0.0
-    values = sorted(values)
-    idx = max(0, min(len(values) - 1, int(round((p / 100.0) * (len(values) - 1)))))
-    return values[idx]
+def quantiles(values) -> tuple[float, float, float]:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0, 0.0, 0.0
+    return tuple(ordered[max(0, math.ceil(p * len(ordered)) - 1)] for p in (0.5, 0.95, 0.99))
 
 
-async def user_loop(user_id: int, stop_at: float, stats: dict, lock: asyncio.Lock) -> None:
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=TIMEOUT_SEC) as client:
-        req_num = 0
-        while time.time() < stop_at:
-            model = choose_model(req_num + user_id)
-            prompt = random.choice(PROMPTS)
-
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "user", "content": f"[user={user_id} req={req_num}] {prompt}"}
-                ],
-                "max_tokens": MAX_TOKENS,
-                "temperature": 0.2,
-                "stream": False
-            }
-
-            started = time.perf_counter()
-            status_label = "ok"
-
-            try:
-                resp = await client.post(f"{API_BASE}/chat/completions", headers=headers, json=payload)
-                latency = time.perf_counter() - started
-
-                if resp.status_code == 200:
-                    status_label = "ok"
-                else:
-                    status_label = f"http_{resp.status_code}"
-
-            except Exception as e:
-                latency = time.perf_counter() - started
-                status_label = f"exc_{type(e).__name__}"
-
-            async with lock:
-                stats["latencies"].append(latency)
-                stats["status_counts"][status_label] += 1
-                stats["model_counts"][model] += 1
-                stats["requests_total"] += 1
-
-            req_num += 1
-            if THINK_TIME_SEC > 0:
-                await asyncio.sleep(THINK_TIME_SEC)
+async def user_loop(client: httpx.AsyncClient, user_id: int, stop_at: float, stats: dict) -> None:
+    req_num = 0
+    while (remaining := stop_at - time.monotonic()) > 0:
+        model = choose_model(req_num + user_id)
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": random.choice(PROMPTS)}],
+            "max_tokens": MAX_TOKENS,
+            "temperature": 0.2,
+            "stream": False,
+        }
+        started = time.monotonic()
+        status = "ok"
+        try:
+            response = await client.post(
+                f"{API_BASE}/chat/completions", json=payload,
+                timeout=TIMEOUT_SEC,
+            )
+            if response.status_code != 200:
+                status = f"http_{response.status_code}"
+            else:
+                text = response.json()["choices"][0]["message"]["content"]
+                if not isinstance(text, str) or not text.strip():
+                    status = "invalid_completion"
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+            status = f"exc_{type(exc).__name__}"
+        latency = time.monotonic() - started
+        # No await in this update: asyncio tasks cannot interleave these writes.
+        if status == "ok":
+            stats["latencies"].append(latency)
+            stats["latency_sum"] += latency
+        stats["status_counts"][status] += 1
+        stats["model_counts"][model] += 1
+        stats["requests_total"] += 1
+        req_num += 1
+        remaining = stop_at - time.monotonic()
+        if THINK_TIME_SEC > 0 and remaining > 0:
+            await asyncio.sleep(min(THINK_TIME_SEC, remaining))
 
 
-async def periodic_report(started_at: float, stats: dict, lock: asyncio.Lock, stop_at: float) -> None:
-    last_total = 0
-    last_time = started_at
-
-    while time.time() < stop_at:
-        await asyncio.sleep(5)
-
-        async with lock:
-            total = stats["requests_total"]
-            lats = list(stats["latencies"])
-            statuses = dict(stats["status_counts"])
-            models = dict(stats["model_counts"])
-
-        now = time.time()
-        delta_t = max(now - last_time, 0.001)
-        delta_req = total - last_total
-        current_rps = delta_req / delta_t
-
-        p50 = percentile(lats, 50) if lats else 0.0
-        p95 = percentile(lats, 95) if lats else 0.0
-        p99 = percentile(lats, 99) if lats else 0.0
-
+async def periodic_report(started_at: float, stats: dict, done: asyncio.Event) -> None:
+    last_total, last_time = 0, started_at
+    while not done.is_set():
+        try:
+            await asyncio.wait_for(done.wait(), timeout=5)
+            return
+        except asyncio.TimeoutError:
+            pass
+        total = stats["requests_total"]
+        now = time.monotonic()
+        p50, p95, p99 = quantiles(stats["latencies"])
         print(
-            f"[load] total={total} "
-            f"rps_now={current_rps:.2f} "
-            f"p50={p50:.3f}s p95={p95:.3f}s p99={p99:.3f}s "
-            f"statuses={statuses} models={models}",
+            f"[load] total={total} rps_now={(total-last_total)/max(now-last_time, 0.001):.2f} "
+            f"success_p50={p50:.3f}s success_p95={p95:.3f}s success_p99={p99:.3f}s "
+            f"statuses={dict(stats['status_counts'])} models={dict(stats['model_counts'])}",
             flush=True,
         )
-
-        last_total = total
-        last_time = now
+        last_total, last_time = total, now
 
 
-async def main() -> None:
-    started_at = time.time()
-    stop_at = started_at + DURATION_SEC
-
-    print("=" * 80, flush=True)
-    print("Starting text load test", flush=True)
-    print(f"API_BASE={API_BASE}", flush=True)
-    print(f"USERS={USERS}", flush=True)
-    print(f"DURATION_SEC={DURATION_SEC}", flush=True)
-    print(f"THINK_TIME_SEC={THINK_TIME_SEC}", flush=True)
-    print(f"MODEL_MODE={MODEL_MODE}", flush=True)
-    print(f"MAX_TOKENS={MAX_TOKENS}", flush=True)
-    print("=" * 80, flush=True)
-
+async def main() -> int:
+    validate_config()
+    print(
+        f"Starting closed-loop text load: users={USERS} duration={DURATION_SEC}s "
+        f"think={THINK_TIME_SEC}s mode={MODEL_MODE} max_tokens={MAX_TOKENS} api={API_BASE}",
+        flush=True,
+    )
     stats = {
-        "latencies": [],
-        "status_counts": Counter(),
-        "model_counts": Counter(),
-        "requests_total": 0,
+        "latencies": deque(maxlen=LATENCY_WINDOW),
+        "latency_sum": 0.0,
+        "status_counts": Counter(), "model_counts": Counter(), "requests_total": 0,
     }
-    lock = asyncio.Lock()
-
-    reporter = asyncio.create_task(periodic_report(started_at, stats, lock, stop_at))
-    workers = [
-        asyncio.create_task(user_loop(user_id=i, stop_at=stop_at, stats=stats, lock=lock))
-        for i in range(USERS)
-    ]
-
-    await asyncio.gather(*workers)
-    await reporter
-
-    async with lock:
-        lats = list(stats["latencies"])
-        statuses = dict(stats["status_counts"])
-        models = dict(stats["model_counts"])
-        total = stats["requests_total"]
-
-    elapsed = max(time.time() - started_at, 0.001)
-    avg = statistics.mean(lats) if lats else 0.0
-    p50 = percentile(lats, 50) if lats else 0.0
-    p95 = percentile(lats, 95) if lats else 0.0
-    p99 = percentile(lats, 99) if lats else 0.0
-    rps = total / elapsed
-
-    print("\n" + "=" * 80, flush=True)
-    print("FINAL LOAD TEST SUMMARY", flush=True)
-    print(f"elapsed={elapsed:.1f}s", flush=True)
-    print(f"total_requests={total}", flush=True)
-    print(f"avg_rps={rps:.2f}", flush=True)
-    print(f"avg_latency={avg:.3f}s", flush=True)
-    print(f"p50={p50:.3f}s", flush=True)
-    print(f"p95={p95:.3f}s", flush=True)
-    print(f"p99={p99:.3f}s", flush=True)
-    print(f"statuses={statuses}", flush=True)
-    print(f"models={models}", flush=True)
-    print("=" * 80, flush=True)
+    # One bounded connection pool is shared across all virtual users.
+    limits = httpx.Limits(max_connections=USERS, max_keepalive_connections=USERS)
+    async with httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        limits=limits, timeout=TIMEOUT_SEC, trust_env=False,
+    ) as client:
+        # Client setup can be noticeable for short runs; start the window afterward.
+        started_at = time.monotonic()
+        stop_at = started_at + DURATION_SEC
+        done = asyncio.Event()
+        reporter = asyncio.create_task(periodic_report(started_at, stats, done))
+        try:
+            await asyncio.gather(*(user_loop(client, i, stop_at, stats) for i in range(USERS)))
+        finally:
+            done.set()
+            await reporter
+    elapsed = max(time.monotonic() - started_at, 0.001)
+    total = stats["requests_total"]
+    success = stats["status_counts"]["ok"]
+    p50, p95, p99 = quantiles(stats["latencies"])
+    avg = stats["latency_sum"] / success if success else 0.0
+    print(
+        "\nFINAL LOAD TEST SUMMARY\n"
+        f"elapsed={elapsed:.2f}s total_requests={total} successful_requests={success}\n"
+        f"avg_rps={total/elapsed:.2f} successful_rps={success/elapsed:.2f}\n"
+        f"success_avg_latency={avg:.3f}s success_p50={p50:.3f}s "
+        f"success_p95={p95:.3f}s success_p99={p99:.3f}s\n"
+        f"latency_window={len(stats['latencies'])} (last {LATENCY_WINDOW} successful requests)\n"
+        f"statuses={dict(stats['status_counts'])} models={dict(stats['model_counts'])}",
+        flush=True,
+    )
+    return 0 if total > 0 and success == total else 1
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(asyncio.run(main()))

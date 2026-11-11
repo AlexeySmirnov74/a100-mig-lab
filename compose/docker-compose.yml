@@ -1,16 +1,15 @@
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: docker.litellm.ai/berriai/litellm:1.108.5
     container_name: litellm
     command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
     ports:
-      - "${LITELLM_PORT:-4000}:4000"
+      - "${BIND_HOST:-127.0.0.1}:${LITELLM_PORT:-4000}:4000"
     environment:
       LITELLM_MASTER_KEY: ${OPENAI_API_KEY:-dummy-local-key}
       STORE_MODEL_IN_DB: "false"
     volumes:
       - ../config/litellm/config.yaml:/app/config.yaml:ro
-      - ../state/litellm:/app/state
     depends_on:
       tgi-general:
         condition: service_healthy
@@ -26,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: context-guard
     ports:
-      - "4010:4010"
+      - "${BIND_HOST:-127.0.0.1}:${CONTEXT_GUARD_PORT:-4010}:4010"
     environment:
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${OPENAI_API_KEY:-dummy-local-key}
@@ -35,10 +34,10 @@ services:
     restart: unless-stopped
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.13.3
     container_name: open-webui
     ports:
-      - "${OPENWEBUI_PORT:-3000}:8080"
+      - "${BIND_HOST:-127.0.0.1}:${OPENWEBUI_PORT:-3000}:8080"
     environment:
       OPENAI_API_BASE_URL: http://context-guard:4010/v1
       OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy-local-key}
@@ -47,7 +46,7 @@ services:
       ENABLE_OLLAMA_API: "false"
       DEFAULT_MODELS: general-chat
     volumes:
-      - ../state/openwebui:/app/backend/data
+      - openwebui-data:/app/backend/data
     depends_on:
       - context-guard
     restart: unless-stopped
@@ -57,17 +56,19 @@ services:
     container_name: tgi-general
     runtime: nvidia
     environment:
-      NVIDIA_VISIBLE_DEVICES: ${MIG_GENERAL_UUID}
+      NVIDIA_VISIBLE_DEVICES: ${MIG_GENERAL_UUID:?Run scripts/03_export_env.sh first}
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
       HF_TOKEN: ${HF_TOKEN}
     shm_size: 1g
     ports:
-      - "8081:80"
+      - "${BIND_HOST:-127.0.0.1}:8081:80"
     volumes:
       - hf-cache:/data
     command:
       - --model-id
       - ${GENERAL_MODEL_ID}
+      - --revision
+      - ${GENERAL_MODEL_REVISION:-main}
       - --hostname
       - 0.0.0.0
       - --port
@@ -94,17 +95,19 @@ services:
     container_name: tgi-fast
     runtime: nvidia
     environment:
-      NVIDIA_VISIBLE_DEVICES: ${MIG_FAST_UUID}
+      NVIDIA_VISIBLE_DEVICES: ${MIG_FAST_UUID:?Run scripts/03_export_env.sh first}
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
       HF_TOKEN: ${HF_TOKEN}
     shm_size: 1g
     ports:
-      - "8082:80"
+      - "${BIND_HOST:-127.0.0.1}:8082:80"
     volumes:
       - hf-cache:/data
     command:
       - --model-id
       - ${FAST_MODEL_ID}
+      - --revision
+      - ${FAST_MODEL_REVISION:-main}
       - --hostname
       - 0.0.0.0
       - --port
@@ -131,17 +134,19 @@ services:
     container_name: tgi-tiny
     runtime: nvidia
     environment:
-      NVIDIA_VISIBLE_DEVICES: ${MIG_TINY_UUID}
+      NVIDIA_VISIBLE_DEVICES: ${MIG_TINY_UUID:?Run scripts/03_export_env.sh first}
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
       HF_TOKEN: ${HF_TOKEN}
     shm_size: 1g
     ports:
-      - "8083:80"
+      - "${BIND_HOST:-127.0.0.1}:8083:80"
     volumes:
       - hf-cache:/data
     command:
       - --model-id
       - ${TINY_MODEL_ID}
+      - --revision
+      - ${TINY_MODEL_REVISION:-main}
       - --hostname
       - 0.0.0.0
       - --port
@@ -172,8 +177,9 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       DCGM_EXPORTER_LISTEN: ":9400"
+      DCGM_EXPORTER_INTERVAL: "15000"
     ports:
-      - "9400:9400"
+      - "${BIND_HOST:-127.0.0.1}:9400:9400"
     restart: unless-stopped
 
   prometheus:
@@ -182,12 +188,13 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "${BIND_HOST:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../state/prometheus:/prometheus
+      - prometheus-data:/prometheus
+    secrets:
+      - litellm_api_key
     depends_on:
       - dcgm-exporter
       - litellm
@@ -197,13 +204,13 @@ services:
     image: grafana/grafana:11.5.2
     container_name: grafana
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+      - "${BIND_HOST:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ../state/grafana:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
       - ../config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ../config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
@@ -212,5 +219,10 @@ services:
 
 volumes:
   hf-cache:
+  openwebui-data:
+  prometheus-data:
+  grafana-data:
 
-
+secrets:
+  litellm_api_key:
+    environment: OPENAI_API_KEY

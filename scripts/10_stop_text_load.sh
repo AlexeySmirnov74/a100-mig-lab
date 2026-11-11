@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-docker rm -f text-load >/dev/null 2>&1 || true
-echo "text-load stopped"
-
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+docker rm -f "${PROJECT_NAME}-text-load" >/dev/null 2>&1 || true
+echo "${PROJECT_NAME}-text-load stopped."

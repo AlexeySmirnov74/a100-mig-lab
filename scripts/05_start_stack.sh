@@ -1,41 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+require_env
 
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$ROOT_DIR/compose"
-
-if [[ ! -f ../.env ]]; then
-  echo "Missing ../.env. Run scripts/03_export_env.sh first."
-  exit 1
-fi
-
-
-
-
-echo "Pulling images..."
-docker compose --env-file ../.env pull
-
-echo "Building local workload images..."
-docker build -t mig-lab-stress-worker:local ../workloads/stress-worker
-docker build -t mig-lab-smoke-client:local ../workloads/smoke-client
-
-
-mkdir -p ../state/prometheus
-chown -R 65534:65534 ../state/prometheus || true
-chmod -R u+rwX,g+rwX ../state/prometheus || true
-
-mkdir -p ../state/prometheus ../state/grafana
-chown -R 65534:65534 ../state/prometheus || true
-chown -R 472:472 ../state/grafana || true
-chmod -R u+rwX,g+rwX ../state/prometheus ../state/grafana || true
-
-
-
-
-echo "Starting stack..."
-docker compose --env-file ../.env up -d
-
-echo "Current status:"
-docker compose --env-file ../.env ps
-
-echo "Use 'docker compose --env-file ../.env logs -f <service>' to watch startup logs."
+echo "Pulling published service images..."
+compose pull --ignore-buildable
+echo "Building the context guard and workload images..."
+compose build --pull
+# Build the CUDA/PyTorch stress image only when the stress demo is requested.
+docker build -t mig-lab-smoke-client:local "$ROOT_DIR/workloads/smoke-client"
+echo "Starting stack (model downloads and warmup can take several minutes)..."
+compose up -d --wait --wait-timeout "${STARTUP_TIMEOUT_SEC:-1800}"
+compose ps
+echo "Use bash get_logs.sh to inspect logs."

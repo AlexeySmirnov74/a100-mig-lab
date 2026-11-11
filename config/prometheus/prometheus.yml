@@ -1,45 +1,40 @@
 global:
-  scrape_interval: 500ms
-  evaluation_interval: 500ms
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
 
 scrape_configs:
   - job_name: prometheus
-    scrape_interval: 500ms
     static_configs:
       - targets: ["prometheus:9090"]
 
   - job_name: dcgm-exporter
-    scrape_interval: 500ms
     static_configs:
       - targets: ["dcgm-exporter:9400"]
 
   - job_name: context-guard
-    scrape_interval: 500ms
     static_configs:
       - targets: ["context-guard:4010"]
 
   - job_name: litellm
-    scrape_interval: 500ms
     metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/litellm_api_key
     static_configs:
       - targets: ["litellm:4000"]
 
   - job_name: tgi-general
-    scrape_interval: 500ms
     metrics_path: /metrics
     static_configs:
       - targets: ["tgi-general:80"]
 
   - job_name: tgi-fast
-    scrape_interval: 500ms
     metrics_path: /metrics
     static_configs:
       - targets: ["tgi-fast:80"]
 
   - job_name: tgi-tiny
-    scrape_interval: 500ms
     metrics_path: /metrics
     static_configs:
       - targets: ["tgi-tiny:80"]
-
-

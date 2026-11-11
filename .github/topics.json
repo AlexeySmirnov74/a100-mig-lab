@@ -1,0 +1,5 @@
+[
+  "nvidia", "a100", "mig", "multi-instance-gpu", "llmops", "llm-inference",
+  "litellm", "text-generation-inference", "docker-compose", "prometheus",
+  "grafana", "gpu", "qwen", "open-webui", "python", "portfolio"
+]

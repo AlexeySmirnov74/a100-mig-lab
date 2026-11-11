@@ -5,3 +5,10 @@ __pycache__/
 state/
 models/
 .hf/
+
+
+.venv/
+.tools/
+source/
+source.zip
+.publication/
